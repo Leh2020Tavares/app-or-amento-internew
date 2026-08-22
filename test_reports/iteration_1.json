@@ -1,0 +1,32 @@
+{
+  "summary": "First iteration full-stack testing for INTERNEW Orçamentos app. Backend: 16/16 pytest tests passing covering public quote create/track, JWT login (success + wrong password + missing token), /auth/me, admin list/filter/stats/get/reply, PUT /admin/company (auth vs unauth), and end-to-end reply→track verification. Frontend (mobile viewport 390x844): submitted quote form → success screen shows 6-char code (61F095) → track pending → admin login → dashboard shows stats & new card → filter chips work → open detail, save reply → public track shows reply message and price. All critical flows work. Only RN web console warnings observed (shadow* style deprecation, pointerEvents deprecation, useNativeDriver missing) — non-blocking.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "theme.shadow.card", "issue": "Uses deprecated shadow* style props on web. Console warning: '\"shadow*\" style props are deprecated. Use \"boxShadow\"'. Reference: /app/frontend/src/theme.ts (shadow.card used in dashboard/cards)."},
+      {"component": "Pressable/View", "issue": "'props.pointerEvents is deprecated. Use style.pointerEvents' console warning appears on multiple screens. Likely coming from a library or Pressable usage; investigate."}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Optional: migrate theme.shadow (shadowColor/shadowOffset/shadowOpacity/shadowRadius) to boxShadow for react-native-web to silence deprecation warning.",
+    "Optional: find and update deprecated pointerEvents prop usage (should be style.pointerEvents)."
+  ],
+  "critical_code_review_comments": [
+    "Backend correctly excludes MongoDB _id in reads (projection {\"_id\": 0}) and pops _id in /company.",
+    "JWT uses env JWT_SECRET, bcrypt via passlib, seed idempotent on startup.",
+    "All routes prefixed with /api; frontend uses process.env.EXPO_PUBLIC_BACKEND_URL — correct.",
+    "All interactive elements have testID (submit, filters, quote-card-{code}, reply inputs, login, track).",
+    "server.py uses deprecated @app.on_event('startup'/'shutdown') — FastAPI recommends lifespan; not a functional issue."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Tests created TEST_ prefixed quotes via public POST /api/quotes (2 quotes). Company settings were briefly updated then restored to original.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend pytest at /app/backend/tests/backend_test.py runs via `python -m pytest backend/tests/backend_test.py -v -o addopts=''` (root pytest.ini enables xdist which breaks shared pytest.quote_id — override addopts to disable). Admin credentials: admin@internew.com.br / Internew@2026. Base URL from EXPO_PUBLIC_BACKEND_URL.",
+  "rca_of_issue": "N/A — no functional issues found."
+}

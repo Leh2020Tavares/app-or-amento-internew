@@ -1,0 +1,154 @@
+{
+  "app_name": "INTERNEW Orçamentos",
+  "personality": "1 iOS-Native Clean",
+  "personality_one_liner": "A highly trustworthy, sterile, and streamlined B2B quoting experience that turns complex medical equipment requests into a simple, frictionless mobile flow.",
+  "color": {
+    "surface": "#FFFFFF",
+    "onSurface": "#111827",
+    "surfaceSecondary": "#F9FAFB",
+    "onSurfaceSecondary": "#374151",
+    "surfaceTertiary": "#F0F9FF",
+    "onSurfaceTertiary": "#0D47A1",
+    "surfaceInverse": "#0D47A1",
+    "onSurfaceInverse": "#FFFFFF",
+    "brand": "#0D47A1",
+    "brandPrimary": "#0D47A1",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#388E3C",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#E0F2FE",
+    "onBrandTertiary": "#0369A1",
+    "success": "#388E3C",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F59E0B",
+    "onWarning": "#FFFFFF",
+    "error": "#EF4444",
+    "onError": "#FFFFFF",
+    "info": "#0EA5E9",
+    "onInfo": "#FFFFFF",
+    "border": "#E5E7EB",
+    "borderStrong": "#0D47A1",
+    "divider": "#F3F4F6"
+  },
+  "typography": {
+    "displayFontFamily": "Plus Jakarta Sans",
+    "textFontFamily": "Inter",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous vertical breathing room for form fields. Do not cramp inputs. Apply lg padding to screen edges.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": 1,
+  "navigation": "stack_only",
+  "icon_set": "Feather",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use on sticky headers over scrolling forms.",
+      "Use on the floating/sticky bottom CTA bar containing the 'Submit Quote' button.",
+      "Apply to status badges to give a premium feel."
+    ],
+    "dont's": [
+      "Never blur the actual form input fields.",
+      "Avoid glass on dense text blocks or within the detailed quote specs."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "QuoteRequestForm",
+      "purpose": "Public-facing form where customers request a quote, usually arriving via a WhatsApp deep link.",
+      "states": {
+        "loading": "Skeleton UI showing the shape of form sections.",
+        "empty": "Not applicable for a form entry.",
+        "error": "Clear validation messages inline, and a full-screen error if submission fails with a retry button."
+      },
+      "layout": "Progressive disclosure or sectioned form. Use a prominent hero image of medical equipment at the top with a gradient scrim. Break down the inputs (Customer Data, Delivery Info, Request Details) into visually distinct surfaceSecondary cards. Ensure a persistent, sticky bottom CTA ('Solicitar Orçamento') anchored above the home indicator inside a glass container."
+    },
+    {
+      "name": "CompanyLogin",
+      "purpose": "Secure gateway for INTERNEW staff to access the quote management dashboard.",
+      "states": {
+        "loading": "Button shows a spinner, inputs disabled.",
+        "empty": "N/A",
+        "error": "Toast or inline text showing 'Credenciais inválidas'."
+      },
+      "layout": "Centered logo over a clean white background. Single column form (Email/Password) with the primary login button. Keep it sterile and extremely minimal."
+    },
+    {
+      "name": "QuotesDashboard",
+      "purpose": "Inbox for the company to see incoming, pending, and responded quote requests.",
+      "states": {
+        "loading": "List of skeleton cards.",
+        "empty": "Minimalist transparent clipboard illustration indicating no pending quotes.",
+        "error": "Error message with 'Tentar Novamente' button."
+      },
+      "layout": "Flat list of quote cards. Each card must prominently show the client's name, requested item, date, and a distinct status badge (Pending = warning, Responded = success). Use the brandSecondary (Moss Green) for responded statuses. Include a simple filter row at the top (All, Pending, Responded) with a sticky glass header."
+    },
+    {
+      "name": "QuoteDetailAndRespond",
+      "purpose": "Allows company staff to view the full request details and input their response/pricing to send back via WhatsApp.",
+      "states": {
+        "loading": "Centered spinner.",
+        "empty": "N/A",
+        "error": "Could not load quote details. Retry button."
+      },
+      "layout": "Scrollable view split into two major sections: 1. Read-only customer request details (clean typography, labeled data points). 2. Response form (Price, Notes/Message). Sticky bottom bar with two actions: A primary button 'Responder via WhatsApp' using brandSecondary (Green) to indicate the WhatsApp action, and a secondary 'Save' button."
+    }
+  ],
+  "images": {
+    "quote_form_hero": {
+      "url": "https://images.pexels.com/photos/7108115/pexels-photo-7108115.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Sterile operating room featuring advanced surgical equipment and lighting"
+    },
+    "dashboard_empty_state": {
+      "url": "https://images.pexels.com/photos/7722834/pexels-photo-7722834.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Minimalist transparent clipboard on a white background"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the user's requested color scheme: Strong Blue (#0D47A1) as brandPrimary and Moss/Avocado Green (#388E3C) as brandSecondary.",
+    "Language is Brazilian Portuguese. All hardcoded CTA texts, form labels, and status badges must be in PT-BR (e.g., 'Solicitar Orçamento', 'Pendente', 'Respondido').",
+    "Implement the 'Sticky primary CTA' pattern for the QuoteRequestForm. The form is long, so the 'Solicitar Orçamento' button must live in a fixed container at the bottom over a glassmorphic background.",
+    "Form design must be native-first. Do not use floating labels; place labels clearly above inputs. Use proper keyboard types (e.g., numeric for quantities and phone numbers).",
+    "On QuoteDetailAndRespond, the 'Responder via WhatsApp' button should use the green brandSecondary color to visually connect with WhatsApp's brand recognition without violating our palette constraints.",
+    "Apply a vertical gradient scrim (transparent to surfaceInverse) over the hero image on the QuoteRequestForm to ensure the white text overlays are legible.",
+    "Ensure the layout relies heavily on generous padding (lg/xl) and subtle surfaceSecondary grouping rather than heavy borders or deep shadows to maintain the iOS-Native Clean clinical feel."
+  ],
+  "haptics": {
+    "primary_button_press": "impactLight",
+    "tab_selection": "selection",
+    "form_submit_success": "notificationSuccess",
+    "status_filter_change": "selection"
+  }
+}
