@@ -31,6 +31,14 @@ App compatível com Play Store e App Store para a empresa INTERNEW Tecnologia em
 - Company settings screen (editable WhatsApp/contact/about).
 - Tested: 16/16 backend pass, all frontend flows pass.
 
+## Implemented (2026-06-24) — Pagamento de entrada (Stripe: cartão + Pix)
+- Admin defines an "entrada" (R$) when replying; settings has a suggested `entry_percent`.
+- Customer pays the entrada by credit card or Pix via Stripe Checkout (hosted). Status synced by polling `stripe.checkout.Session.retrieve` + optional webhook.
+- Endpoints: POST /api/quotes/{id}/payment-session, GET /api/quotes/{id}/payment-status, POST /api/stripe/webhook, GET /api/payment/return (hosted return page).
+- Quote fields added: entry_amount, payment_status (none|unpaid|pending|paid|failed), stripe_session_id, paid_at.
+- GATED on Stripe keys: STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET in /app/backend/.env are EMPTY. Payment returns 503 until the user pastes their Stripe key (they are opening a Stripe PJ account). Enable Pix in Stripe Dashboard → Payment methods.
+- NOTE: real card/Pix payment can only be tested once the Stripe secret key is set.
+
 ## Implemented (2026-06-23) — Email + branding + profile
 - Customer gets an email when the company replies (Emergent-managed Resend).
 - Company gets an email on every NEW quote — recipients editable in Settings (`notify_emails`), seeded from `NOTIFY_EMAILS` env (cord@internew.tec.br, lehtavareslocmed@gmail.com).

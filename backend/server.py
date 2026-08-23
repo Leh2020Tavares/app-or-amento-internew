@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request
+from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -14,9 +15,11 @@ import jwt
 import httpx
 import re
 import ipaddress
+import stripe
 from html import escape
 from html.parser import HTMLParser
 from urllib.parse import urlparse
+from decimal import Decimal, ROUND_HALF_UP
 from passlib.context import CryptContext
 
 
@@ -43,6 +46,21 @@ EMAIL_KEY = os.environ.get("EMERGENT_EMAIL_KEY", "")
 EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "INTERNEW Tecnologia em Saúde")
 EMAIL_REPLY_TO = os.environ.get("EMAIL_REPLY_TO")
 NOTIFY_EMAILS_DEFAULT = os.environ.get("NOTIFY_EMAILS", "")
+
+# Stripe (entrada payments — card + Pix). Empty until the user provides keys.
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
+if STRIPE_SECRET_KEY:
+    stripe.api_key = STRIPE_SECRET_KEY
+
+
+def payments_enabled() -> bool:
+    return bool(STRIPE_SECRET_KEY)
+
+
+def brl_to_cents(value) -> int:
+    amount = Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return int(amount * 100)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -205,6 +223,7 @@ class QuoteCreate(BaseModel):
 class QuoteReply(BaseModel):
     price: Optional[str] = ""
     message: str
+    entry_amount: Optional[float] = 0.0
 
 
 class Quote(BaseModel):
@@ -226,6 +245,10 @@ class Quote(BaseModel):
     reply_price: str = ""
     reply_message: str = ""
     replied_at: Optional[str] = None
+    entry_amount: float = 0.0
+    payment_status: str = "none"   # none | unpaid | pending | paid | failed
+    stripe_session_id: Optional[str] = None
+    paid_at: Optional[str] = None
     customer_user_id: Optional[str] = None
     created_at: str = Field(default_factory=now_utc)
 
@@ -259,6 +282,7 @@ class CompanySettings(BaseModel):
     about: str = ("Há mais de 33 anos no mercado, com sede em Santa Catarina e atuação no "
                   "Rio de Janeiro e demais estados do Brasil, atendendo os setores público e privado.")
     notify_emails: str = ""
+    entry_percent: int = 50
 
 
 # ----------------- Session helpers -----------------
@@ -401,6 +425,139 @@ async def track_quote(code: str):
     if not doc:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado")
     return Quote(**doc)
+
+
+# ----------------- Payment routes (Stripe entrada) -----------------
+def _sync_paid_from_stripe(quote: dict) -> Optional[str]:
+    """Best-effort: ask Stripe for the latest status of the quote's session."""
+    sid = quote.get("stripe_session_id")
+    if not (payments_enabled() and sid):
+        return None
+    try:
+        sess = stripe.checkout.Session.retrieve(sid)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Stripe session retrieve failed: %s", e)
+        return None
+    if sess.get("payment_status") == "paid":
+        return "paid"
+    if sess.get("status") == "expired":
+        return "failed"
+    return "pending"
+
+
+@api_router.post("/quotes/{quote_id}/payment-session")
+async def create_payment_session(quote_id: str, request: Request):
+    if not payments_enabled():
+        raise HTTPException(status_code=503, detail="Pagamento online ainda não configurado")
+    quote = await db.quotes.find_one({"id": quote_id}, {"_id": 0})
+    if not quote:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+    if quote.get("payment_status") == "paid":
+        raise HTTPException(status_code=409, detail="Entrada já paga")
+    amount = brl_to_cents(quote.get("entry_amount", 0))
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Este orçamento não tem entrada a pagar")
+
+    base = str(request.base_url).rstrip("/")
+    try:
+        session = stripe.checkout.Session.create(
+            mode="payment",
+            line_items=[{
+                "price_data": {
+                    "currency": "brl",
+                    "product_data": {"name": f"Entrada do orçamento #{quote.get('code')}"},
+                    "unit_amount": amount,
+                },
+                "quantity": 1,
+            }],
+            payment_method_types=["card", "pix"],
+            success_url=f"{base}/api/payment/return?quote_id={quote_id}&status=success",
+            cancel_url=f"{base}/api/payment/return?quote_id={quote_id}&status=cancelled",
+            client_reference_id=quote_id,
+            metadata={"quote_id": quote_id, "purpose": "quote_entry"},
+            payment_intent_data={"metadata": {"quote_id": quote_id, "purpose": "quote_entry"}},
+            idempotency_key=f"quote-entry:{quote_id}:{amount}",
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.error("Stripe session create failed: %s", e)
+        raise HTTPException(status_code=502, detail="Não foi possível iniciar o pagamento")
+
+    await db.quotes.update_one(
+        {"id": quote_id},
+        {"$set": {"payment_status": "pending", "stripe_session_id": session.id}},
+    )
+    return {"checkout_url": session.url, "session_id": session.id}
+
+
+@api_router.get("/quotes/{quote_id}/payment-status")
+async def get_payment_status(quote_id: str):
+    quote = await db.quotes.find_one({"id": quote_id}, {"_id": 0})
+    if not quote:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+    status = quote.get("payment_status", "none")
+    if status in ("pending", "unpaid"):
+        synced = _sync_paid_from_stripe(quote)
+        if synced and synced != status:
+            update = {"payment_status": synced}
+            if synced == "paid":
+                update["paid_at"] = now_utc()
+            await db.quotes.update_one({"id": quote_id}, {"$set": update})
+            status = synced
+    return {"quote_id": quote_id, "payment_status": status, "entry_amount": quote.get("entry_amount", 0)}
+
+
+@app.post("/api/stripe/webhook")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    signature = request.headers.get("stripe-signature")
+    if not STRIPE_WEBHOOK_SECRET:
+        return {"received": True}
+    try:
+        event = stripe.Webhook.construct_event(payload, signature, STRIPE_WEBHOOK_SECRET)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="Webhook inválido")
+
+    obj = event["data"]["object"]
+    etype = event["type"]
+    quote_id = (obj.get("metadata") or {}).get("quote_id") or obj.get("client_reference_id")
+    if quote_id:
+        status = None
+        if etype in ("checkout.session.async_payment_succeeded", "payment_intent.succeeded"):
+            status = "paid"
+        elif etype in ("checkout.session.async_payment_failed", "payment_intent.payment_failed"):
+            status = "failed"
+        elif etype == "checkout.session.completed" and obj.get("payment_status") == "paid":
+            status = "paid"
+        if status:
+            update = {"payment_status": status}
+            if status == "paid":
+                update["paid_at"] = now_utc()
+            await db.quotes.update_one({"id": quote_id}, {"$set": update})
+    return {"received": True}
+
+
+@app.get("/api/payment/return", response_class=HTMLResponse)
+async def payment_return(status: str = "success"):
+    ok = status == "success"
+    color = "#388E3C" if ok else "#EF4444"
+    title = "Pagamento recebido!" if ok else "Pagamento cancelado"
+    msg = ("Sua entrada foi processada. Você já pode voltar ao aplicativo INTERNEW."
+           if ok else "Nenhum valor foi cobrado. Você pode voltar ao app e tentar novamente.")
+    return HTMLResponse(
+        f'<!doctype html><html lang="pt-br"><head><meta charset="utf-8">'
+        f'<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f'<title>{title}</title></head>'
+        f'<body style="font-family:Arial,sans-serif;background:#f9fafb;margin:0;'
+        f'display:flex;min-height:100vh;align-items:center;justify-content:center">'
+        f'<div style="background:#fff;max-width:420px;margin:16px;padding:32px;border-radius:16px;'
+        f'text-align:center;box-shadow:0 4px 20px rgba(13,71,161,.08)">'
+        f'<div style="width:72px;height:72px;border-radius:36px;background:{color};margin:0 auto 20px;'
+        f'display:flex;align-items:center;justify-content:center;color:#fff;font-size:36px">'
+        f'{"✓" if ok else "×"}</div>'
+        f'<h1 style="color:#111827;font-size:22px;margin:0 0 8px">{title}</h1>'
+        f'<p style="color:#6b7280;font-size:15px;line-height:1.5;margin:0">{msg}</p>'
+        f'</div></body></html>'
+    )
 
 
 # ----------------- Auth routes -----------------
@@ -555,15 +712,24 @@ async def get_quote(quote_id: str, admin: dict = Depends(get_current_admin)):
 
 @api_router.post("/admin/quotes/{quote_id}/reply", response_model=Quote)
 async def reply_quote(quote_id: str, data: QuoteReply, admin: dict = Depends(get_current_admin)):
-    result = await db.quotes.update_one(
-        {"id": quote_id},
-        {"$set": {
-            "reply_price": data.price or "",
-            "reply_message": data.message,
-            "status": "responded",
-            "replied_at": now_utc(),
-        }},
-    )
+    entry = float(data.entry_amount or 0)
+    update = {
+        "reply_price": data.price or "",
+        "reply_message": data.message,
+        "status": "responded",
+        "replied_at": now_utc(),
+        "entry_amount": entry,
+    }
+    existing = await db.quotes.find_one({"id": quote_id}, {"_id": 0, "payment_status": 1})
+    if entry > 0:
+        # keep 'paid' if already paid; otherwise it becomes payable
+        if not existing or existing.get("payment_status") != "paid":
+            update["payment_status"] = "unpaid"
+    else:
+        if not existing or existing.get("payment_status") != "paid":
+            update["payment_status"] = "none"
+
+    result = await db.quotes.update_one({"id": quote_id}, {"$set": update})
     if result.matched_count != 1:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado")
     doc = await db.quotes.find_one({"id": quote_id}, {"_id": 0})

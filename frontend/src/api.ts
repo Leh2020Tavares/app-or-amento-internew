@@ -43,6 +43,10 @@ export const api = {
   getCompany: () => request("/company", {}, false),
   createQuote: (body: any) => request("/quotes", { method: "POST", body: JSON.stringify(body) }),
   trackQuote: (code: string) => request(`/quotes/track/${code}`, {}, false),
+  createPaymentSession: (quoteId: string) =>
+    request(`/quotes/${quoteId}/payment-session`, { method: "POST" }, false),
+  getPaymentStatus: (quoteId: string) =>
+    request(`/quotes/${quoteId}/payment-status`, {}, false),
 
   // auth
   login: (email: string, password: string) =>

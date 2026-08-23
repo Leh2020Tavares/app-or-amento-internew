@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -40,6 +40,8 @@ export default function QuoteDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [price, setPrice] = useState("");
   const [message, setMessage] = useState("");
+  const [entry, setEntry] = useState("");
+  const [entryPercent, setEntryPercent] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -48,12 +50,17 @@ export default function QuoteDetailScreen() {
       setQuote(data);
       setPrice(data.reply_price || "");
       setMessage(data.reply_message || "");
+      setEntry(data.entry_amount ? String(data.entry_amount).replace(".", ",") : "");
     } catch (err: any) {
       toast.show(err.message || "Erro ao carregar", "error");
     } finally {
       setLoading(false);
     }
   }, [id, toast]);
+
+  useEffect(() => {
+    api.getCompany().then((c) => setEntryPercent(c.entry_percent ?? null)).catch(() => {});
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -68,7 +75,8 @@ export default function QuoteDetailScreen() {
     }
     setSaving(true);
     try {
-      const updated = await api.replyQuote(id as string, { price, message });
+      const entryVal = parseFloat((entry || "0").replace(/\./g, "").replace(",", ".")) || 0;
+      const updated = await api.replyQuote(id as string, { price, message, entry_amount: entryVal });
       setQuote(updated);
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast.show("Resposta salva com sucesso", "success");
@@ -155,6 +163,15 @@ export default function QuoteDetailScreen() {
           placeholder="Ex.: R$ 1.250,00 / mês" testID="input-reply-price" />
         <Field label="Mensagem ao cliente" value={message} onChangeText={setMessage}
           placeholder="Condições, prazo, disponibilidade..." multiline testID="input-reply-message" />
+
+        <SectionLabel>Entrada (pagamento)</SectionLabel>
+        <Field label="Valor da entrada em R$ (deixe 0 se não houver)" value={entry} onChangeText={setEntry}
+          placeholder="Ex.: 500,00" keyboardType="numeric" testID="input-reply-entry" />
+        <Text style={styles.entryHint}>
+          {entryPercent
+            ? `Sugestão configurada: ${entryPercent}% do total. O cliente paga por cartão de crédito ou Pix.`
+            : "O cliente poderá pagar esse valor por cartão de crédito ou Pix."}
+        </Text>
       </KeyboardAwareScrollView>
 
       <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
@@ -183,6 +200,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.divider,
   },
   headerTitle: { fontSize: font.lg, fontWeight: "800", color: colors.onSurface },
+  entryHint: { fontSize: font.sm, color: colors.muted, marginTop: -spacing.sm, marginBottom: spacing.md, lineHeight: 18 },
   customer: { fontSize: font["2xl"], fontWeight: "900", color: colors.onSurface },
   pillRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm, marginBottom: spacing.md },
   pill: { backgroundColor: colors.surfaceTertiary, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.pill },

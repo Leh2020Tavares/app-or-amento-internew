@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { Field, Button, Card, StatusBadge } from "@/src/components/ui";
+import { PaymentBox } from "@/src/components/PaymentBox";
 import { useToast } from "@/src/components/Toast";
 import { api } from "@/src/api";
 
@@ -88,6 +89,15 @@ export default function TrackScreen() {
                   Seu orçamento está em análise. Assim que respondermos, a resposta aparecerá aqui.
                 </Text>
               </Card>
+            )}
+
+            {quote.status === "responded" && quote.entry_amount > 0 && (
+              <PaymentBox
+                quoteId={quote.id}
+                entryAmount={quote.entry_amount}
+                status={quote.payment_status}
+                onPaid={() => setQuote({ ...quote, payment_status: "paid" })}
+              />
             )}
 
             <Card style={{ marginTop: spacing.lg }}>

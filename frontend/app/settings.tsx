@@ -79,6 +79,12 @@ export default function SettingsScreen() {
           placeholder="comercial@empresa.com, outro@empresa.com" keyboardType="email-address" autoCapitalize="none" multiline testID="input-company-notify-emails" />
         <Text style={styles.hint}>Separe vários e-mails por vírgula. Todos recebem um aviso a cada novo pedido.</Text>
 
+        <SectionLabel>Entrada (pagamento)</SectionLabel>
+        <Field label="Percentual de entrada sugerido (%)" value={String(form.entry_percent ?? 50)}
+          onChangeText={(v) => set("entry_percent")(v.replace(/[^0-9]/g, "") || "0")}
+          keyboardType="numeric" testID="input-company-entry-percent" />
+        <Text style={styles.hint}>Aparece como sugestão ao responder o orçamento. O valor final da entrada é digitado por você em cada resposta.</Text>
+
         <SectionLabel>Sobre</SectionLabel>
         <Field label="Texto institucional" value={form.about} onChangeText={set("about")} multiline testID="input-company-about" />
 
