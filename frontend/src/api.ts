@@ -52,6 +52,8 @@ export const api = {
   appleLogin: (payload: { identity_token: string; name?: string | null; email?: string | null }) =>
     request("/auth/apple", { method: "POST", body: JSON.stringify(payload) }, false),
   me: () => request("/auth/me"),
+  updateProfile: (body: { name?: string; phone?: string }) =>
+    request("/auth/profile", { method: "PUT", body: JSON.stringify(body) }),
   logout: () => request("/auth/logout", { method: "POST" }),
   myQuotes: () => request("/my/quotes"),
 

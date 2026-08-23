@@ -31,7 +31,12 @@ App compatível com Play Store e App Store para a empresa INTERNEW Tecnologia em
 - Company settings screen (editable WhatsApp/contact/about).
 - Tested: 16/16 backend pass, all frontend flows pass.
 
-## Implemented (2026-06-23) — Social login
+## Implemented (2026-06-23) — Email + branding + profile
+- Customer gets an email when the company replies (Emergent-managed Resend).
+- Company gets an email on every NEW quote — recipients editable in Settings (`notify_emails`), seeded from `NOTIFY_EMAILS` env (cord@internew.tec.br, lehtavareslocmed@gmail.com).
+- Official INTERNEW logo applied to login + home hero; app icon/splash/favicon regenerated from the logo (white bg).
+- Customer profile (name + phone) editable on `/edit-profile`; shown on `/my-quotes` header with avatar/photo.
+- Endpoints: PUT /api/auth/profile; email send inside POST /api/quotes and reply endpoint.
 - Auth refactored to session-token model (Bearer from `user_sessions`). Coexists with email/password.
 - Login options: Google (iOS/Android/web, Emergent-managed), Apple (iOS only, native), email/password.
 - Role by email allowlist `ADMIN_EMAILS`: company_admin → /dashboard; customer → /my-quotes.

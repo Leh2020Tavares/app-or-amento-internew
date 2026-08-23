@@ -74,6 +74,11 @@ export default function SettingsScreen() {
         <Field label="Telefone fixo" value={form.phone} onChangeText={set("phone")} keyboardType="phone-pad" testID="input-company-phone" />
         <Field label="E-mail" value={form.email} onChangeText={set("email")} keyboardType="email-address" autoCapitalize="none" testID="input-company-email" />
 
+        <SectionLabel>Receber orçamentos por e-mail</SectionLabel>
+        <Field label="E-mails que recebem novos orçamentos" value={form.notify_emails || ""} onChangeText={set("notify_emails")}
+          placeholder="comercial@empresa.com, outro@empresa.com" keyboardType="email-address" autoCapitalize="none" multiline testID="input-company-notify-emails" />
+        <Text style={styles.hint}>Separe vários e-mails por vírgula. Todos recebem um aviso a cada novo pedido.</Text>
+
         <SectionLabel>Sobre</SectionLabel>
         <Field label="Texto institucional" value={form.about} onChangeText={set("about")} multiline testID="input-company-about" />
 

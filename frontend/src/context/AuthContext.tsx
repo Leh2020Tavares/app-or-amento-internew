@@ -12,6 +12,7 @@ export type User = {
   user_id: string;
   email: string;
   name: string;
+  phone: string;
   picture: string;
   role: "company_admin" | "customer";
 };
@@ -23,6 +24,7 @@ type AuthState = {
   signInPassword: (email: string, password: string) => Promise<User>;
   signInGoogle: () => Promise<void>;
   signInApple: () => Promise<User>;
+  updateProfile: (data: { name?: string; phone?: string }) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -173,9 +175,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateProfile = useCallback(async (data: { name?: string; phone?: string }) => {
+    const updated = await api.updateProfile(data);
+    setUser(updated);
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, authInProgress, signInPassword, signInGoogle, signInApple, signOut }}
+      value={{ user, loading, authInProgress, signInPassword, signInGoogle, signInApple, updateProfile, signOut }}
     >
       {children}
     </AuthContext.Provider>

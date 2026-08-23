@@ -118,7 +118,20 @@ export default function MyQuotesScreen() {
                 {user.email}
               </Text>
             )}
+            {!!user?.phone && (
+              <Text style={styles.profileEmail} numberOfLines={1} testID="client-phone">
+                {user.phone}
+              </Text>
+            )}
           </View>
+          <Pressable
+            testID="edit-profile-button"
+            onPress={() => router.push("/edit-profile")}
+            style={styles.editBtn}
+            hitSlop={8}
+          >
+            <Feather name="edit-2" size={16} color={colors.brandPrimary} />
+          </Pressable>
         </View>
       </View>
 
@@ -163,6 +176,10 @@ const styles = StyleSheet.create({
   avatarInitials: { fontSize: font.lg, fontWeight: "900", color: colors.brandPrimary },
   profileName: { fontSize: font.lg, fontWeight: "800", color: colors.onSurface },
   profileEmail: { fontSize: font.sm, color: colors.muted, marginTop: 1 },
+  editBtn: {
+    width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceTertiary,
+    alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.brandTertiary,
+  },
   iconBtn: {
     width: 42, height: 42, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary,
     alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border,
