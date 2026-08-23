@@ -1,18 +1,25 @@
 {
+  {
   "expo": {
-    "name": "INTERNEW - TECNOLOGIA EM SAÚDE - ORÇAMENTOS",
-    "slug": "frontend",
+    "name": "app-oramento-internew",
+    "slug": "app-oramento-internew",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true,
-      "usesAppleSignIn": true,
-      "bundleIdentifier": "com.emergent.whatsappquoteapp.tvhyim"
-    },
+    "platforms": [
+      "web"
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    }
+  }
+}
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
