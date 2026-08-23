@@ -11,6 +11,8 @@ config.cacheStores = [
   new FileStore({ root: path.join(root, 'cache') }),
 ];
 
+// Enable package exports support for @vercel/analytics
+config.resolver.unstable_enablePackageExports = true;
 
 // // Exclude unnecessary directories from file watching
 // config.watchFolders = [__dirname];
