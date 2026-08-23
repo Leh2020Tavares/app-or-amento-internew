@@ -21,6 +21,13 @@ function formatDate(iso: string) {
   }
 }
 
+function getInitials(name?: string, email?: string) {
+  const src = (name || email || "?").trim();
+  const parts = src.split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return src.slice(0, 2).toUpperCase();
+}
+
 export default function MyQuotesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -88,13 +95,30 @@ export default function MyQuotesScreen() {
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.hi}>Olá{user?.name ? `, ${user.name.split(" ")[0]}` : ""}</Text>
-            <Text style={styles.headerTitle}>Meus orçamentos</Text>
-          </View>
+          <Text style={styles.headerTitle}>Meus orçamentos</Text>
           <Pressable testID="logout-button" onPress={logout} style={styles.iconBtn}>
             <Feather name="log-out" size={19} color={colors.error} />
           </Pressable>
+        </View>
+
+        <View style={styles.profileRow} testID="client-profile">
+          {user?.picture ? (
+            <Image source={{ uri: user.picture }} style={styles.avatar} contentFit="cover" testID="client-avatar" />
+          ) : (
+            <View style={[styles.avatar, styles.avatarFallback]}>
+              <Text style={styles.avatarInitials}>{getInitials(user?.name, user?.email)}</Text>
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.profileName} numberOfLines={1} testID="client-name">
+              {user?.name || "Cliente"}
+            </Text>
+            {!!user?.email && (
+              <Text style={styles.profileEmail} numberOfLines={1} testID="client-email">
+                {user.email}
+              </Text>
+            )}
+          </View>
         </View>
       </View>
 
@@ -133,6 +157,12 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   hi: { fontSize: font.sm, color: colors.muted, fontWeight: "600" },
   headerTitle: { fontSize: font.xl, fontWeight: "900", color: colors.brandPrimary },
+  profileRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.lg },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surfaceTertiary },
+  avatarFallback: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.brandTertiary },
+  avatarInitials: { fontSize: font.lg, fontWeight: "900", color: colors.brandPrimary },
+  profileName: { fontSize: font.lg, fontWeight: "800", color: colors.onSurface },
+  profileEmail: { fontSize: font.sm, color: colors.muted, marginTop: 1 },
   iconBtn: {
     width: 42, height: 42, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary,
     alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border,

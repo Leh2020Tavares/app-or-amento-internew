@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { Field, ChipGroup, Button, SectionLabel } from "@/src/components/ui";
 import { useToast } from "@/src/components/Toast";
+import { LogoTile } from "@/src/components/Logo";
 import { useAuth } from "@/src/context/AuthContext";
 import { api } from "@/src/api";
 
@@ -113,9 +114,7 @@ export default function QuoteFormScreen() {
           />
           <View style={[styles.heroContent, { paddingTop: insets.top + spacing.lg }]}>
             <View style={styles.heroTopRow}>
-              <View style={styles.logoBadge}>
-                <Text style={styles.logoBadgeText}>iN</Text>
-              </View>
+              <LogoTile dim={48} />
               <Pressable
                 testID="account-link"
                 onPress={() =>

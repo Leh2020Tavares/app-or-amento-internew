@@ -43,7 +43,6 @@ App compatível com Play Store e App Store para a empresa INTERNEW Tecnologia em
 - NOTE: Apple button/flow only works on a real iOS device with a published build (not Expo Go / web / Android).
 
 ## Backlog
-- P1: Replace temporary logo with client's real emblem.
 - P1: Deep link config so a WhatsApp link opens the form directly (custom scheme / universal link).
 - P2: Email/WhatsApp auto-notify company on new quote.
 - P2: PDF/export of a quote; multi-item quotes.
