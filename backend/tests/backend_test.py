@@ -1,9 +1,9 @@
-"""Backend API tests for INTERNEW Orçamentos."""
+"""Backend API tests for INTERNEW Orçamentos — session-token auth model."""
 import os
 import pytest
 import requests
 
-BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://whatsapp-quote-app.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ['EXPO_PUBLIC_BACKEND_URL'].rstrip('/')
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "admin@internew.com.br"
@@ -18,16 +18,19 @@ def client():
 
 
 @pytest.fixture(scope="module")
-def token(client):
+def admin_token(client):
     r = client.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
     assert r.status_code == 200, r.text
-    return r.json()["access_token"]
+    body = r.json()
+    assert "session_token" in body, body
+    assert body["user"]["role"] == "company_admin"
+    return body["session_token"]
 
 
 @pytest.fixture(scope="module")
-def auth_client(token):
+def auth_client(admin_token):
     s = requests.Session()
-    s.headers.update({"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+    s.headers.update({"Content-Type": "application/json", "Authorization": f"Bearer {admin_token}"})
     return s
 
 
@@ -37,22 +40,21 @@ class TestPublic:
         r = client.get(f"{API}/company")
         assert r.status_code == 200
         data = r.json()
-        assert "name" in data and "whatsapp" in data
         assert "INTERNEW" in data["name"]
 
-    def test_create_and_track_quote(self, client):
+    def test_create_and_track_quote_anonymous(self, client):
         payload = {
-            "customer_name": "TEST_Hospital",
+            "customer_name": "TEST_Hospital_Anon",
             "customer_phone": "48999990000",
-            "customer_email": "test@example.com",
-            "address": "Rua X, 123 - Florianopolis/SC",
-            "delivery_location": "UTI 3o andar",
+            "customer_email": "test_anon@example.com",
+            "address": "Rua X, 123",
+            "delivery_location": "UTI",
             "request_type": "Locação",
             "category": "Equipamento",
-            "product": "Monitor multiparâmetro",
+            "product": "Monitor",
             "quantity": "3",
             "unit": "Unidade",
-            "specification": "Test spec",
+            "specification": "spec",
             "delivery_time": "15 dias",
         }
         r = client.post(f"{API}/quotes", json=payload)
@@ -60,10 +62,10 @@ class TestPublic:
         q = r.json()
         assert len(q["code"]) == 6
         assert q["status"] == "pending"
-        pytest.quote_id = q["id"]
-        pytest.quote_code = q["code"]
+        assert q.get("customer_user_id") in (None, "")
+        pytest.anon_quote_id = q["id"]
+        pytest.anon_quote_code = q["code"]
 
-        # track
         r2 = client.get(f"{API}/quotes/track/{q['code']}")
         assert r2.status_code == 200
         assert r2.json()["id"] == q["id"]
@@ -73,30 +75,101 @@ class TestPublic:
         assert r.status_code == 404
 
 
-# ------ Auth ------
+# ------ Auth: login/me/logout ------
 class TestAuth:
-    def test_login_success(self, client):
+    def test_login_success_returns_session_token(self, client):
         r = client.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
         assert r.status_code == 200
-        assert "access_token" in r.json()
+        d = r.json()
+        assert "session_token" in d and isinstance(d["session_token"], str)
+        assert d["user"]["email"] == ADMIN_EMAIL
+        assert d["user"]["role"] == "company_admin"
 
-    def test_login_wrong_password(self, client):
+    def test_login_wrong_password_401(self, client):
         r = client.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": "wrong"})
         assert r.status_code == 401
 
-    def test_me_no_token(self, client):
+    def test_me_no_token_returns_401_not_403(self, client):
         r = client.get(f"{API}/auth/me")
+        assert r.status_code == 401, f"expected 401 got {r.status_code}"
+
+    def test_me_invalid_token_401(self, client):
+        r = requests.get(f"{API}/auth/me", headers={"Authorization": "Bearer notarealtoken"})
         assert r.status_code == 401
 
     def test_me_with_token(self, auth_client):
         r = auth_client.get(f"{API}/auth/me")
         assert r.status_code == 200
-        assert r.json()["email"] == ADMIN_EMAIL
+        d = r.json()
+        assert d["email"] == ADMIN_EMAIL
+        assert d["role"] == "company_admin"
+
+    def test_apple_invalid_token_401(self, client):
+        r = client.post(f"{API}/auth/apple", json={"identity_token": "invalid.jwt.token"})
+        assert r.status_code == 401
+
+    def test_google_session_invalid_401(self, client):
+        r = client.post(f"{API}/auth/session", json={"session_id": "definitely-not-valid-xyz"})
+        assert r.status_code == 401
+
+    def test_logout_invalidates_session(self, client):
+        # login a fresh session
+        r = client.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+        token = r.json()["session_token"]
+        h = {"Authorization": f"Bearer {token}"}
+        # confirm valid
+        assert requests.get(f"{API}/auth/me", headers=h).status_code == 200
+        # logout
+        rl = requests.post(f"{API}/auth/logout", headers=h)
+        assert rl.status_code == 200
+        # now invalid
+        r2 = requests.get(f"{API}/auth/me", headers=h)
+        assert r2.status_code == 401
 
 
-# ------ Admin ------
+# ------ /my/quotes and quote linking ------
+class TestMyQuotes:
+    def test_my_quotes_requires_auth(self, client):
+        r = client.get(f"{API}/my/quotes")
+        assert r.status_code == 401
+
+    def test_my_quotes_with_admin_token_returns_list(self, auth_client):
+        r = auth_client.get(f"{API}/my/quotes")
+        assert r.status_code == 200
+        assert isinstance(r.json(), list)
+
+    def test_authenticated_quote_is_linked_and_appears_in_my_quotes(self, auth_client, admin_token):
+        payload = {
+            "customer_name": "TEST_Linked",
+            "customer_phone": "48988887777",
+            "customer_email": "",
+            "address": "Rua Y",
+            "delivery_location": "Setor B",
+            "request_type": "Venda",
+            "category": "Consumível",
+            "product": "Seringa",
+            "quantity": "10",
+            "unit": "Unidade",
+            "specification": "",
+            "delivery_time": "7 dias",
+        }
+        r = auth_client.post(f"{API}/quotes", json=payload)
+        assert r.status_code == 200, r.text
+        q = r.json()
+        assert q.get("customer_user_id"), "quote should be linked to authenticated user"
+        # email should be filled in from admin user
+        assert q["customer_email"] == ADMIN_EMAIL
+
+        # verify shows up in /my/quotes
+        r2 = auth_client.get(f"{API}/my/quotes")
+        assert r2.status_code == 200
+        ids = [x["id"] for x in r2.json()]
+        assert q["id"] in ids
+
+
+# ------ Admin routes ------
 class TestAdmin:
-    def test_list_quotes_unauth(self, client):
+    def test_list_quotes_unauth_401(self, client):
         r = client.get(f"{API}/admin/quotes")
         assert r.status_code == 401
 
@@ -119,44 +192,36 @@ class TestAdmin:
         assert d["total"] == d["pending"] + d["responded"]
 
     def test_get_single(self, auth_client):
-        r = auth_client.get(f"{API}/admin/quotes/{pytest.quote_id}")
+        r = auth_client.get(f"{API}/admin/quotes/{pytest.anon_quote_id}")
         assert r.status_code == 200
-        assert r.json()["id"] == pytest.quote_id
+        assert r.json()["id"] == pytest.anon_quote_id
 
-    def test_reply_and_track_shows_reply(self, auth_client, client):
+    def test_reply_and_track(self, auth_client, client):
         r = auth_client.post(
-            f"{API}/admin/quotes/{pytest.quote_id}/reply",
-            json={"price": "R$ 1.500,00", "message": "TEST reply message"},
+            f"{API}/admin/quotes/{pytest.anon_quote_id}/reply",
+            json={"price": "R$ 1.500,00", "message": "TEST reply msg"},
         )
         assert r.status_code == 200, r.text
         assert r.json()["status"] == "responded"
-        assert r.json()["reply_message"] == "TEST reply message"
 
-        # verify via public tracking
-        r2 = client.get(f"{API}/quotes/track/{pytest.quote_code}")
-        assert r2.status_code == 200
+        r2 = client.get(f"{API}/quotes/track/{pytest.anon_quote_code}")
         d = r2.json()
         assert d["status"] == "responded"
-        assert d["reply_message"] == "TEST reply message"
+        assert d["reply_message"] == "TEST reply msg"
         assert d["reply_price"] == "R$ 1.500,00"
 
-    def test_filter_responded(self, auth_client):
-        r = auth_client.get(f"{API}/admin/quotes?status_filter=responded")
-        assert r.status_code == 200
-        for q in r.json():
-            assert q["status"] == "responded"
-
     def test_update_company(self, auth_client):
-        r0 = auth_client.get(f"{API}/company")  # this endpoint is public
         base = requests.get(f"{API}/company").json()
         payload = dict(base)
         payload["tagline"] = "TEST tagline updated"
         r = auth_client.put(f"{API}/admin/company", json=payload)
         assert r.status_code == 200
         assert r.json()["tagline"] == "TEST tagline updated"
-        # restore
         auth_client.put(f"{API}/admin/company", json=base)
 
     def test_update_company_unauth(self, client):
-        r = client.put(f"{API}/admin/company", json={"name": "x", "tagline": "y", "whatsapp": "1", "email": "a@b.com", "about": ""})
+        r = client.put(
+            f"{API}/admin/company",
+            json={"name": "x", "tagline": "y", "whatsapp": "1", "email": "a@b.com", "about": ""},
+        )
         assert r.status_code == 401

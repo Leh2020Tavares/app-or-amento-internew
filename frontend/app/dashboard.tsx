@@ -38,7 +38,7 @@ function formatDate(iso: string) {
 export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { token, signOut, loading: authLoading } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const toast = useToast();
   const [filter, setFilter] = useState("all");
   const [quotes, setQuotes] = useState<any[]>([]);
@@ -64,16 +64,16 @@ export default function DashboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!authLoading && !token) {
+      if (!authLoading && (!user || user.role !== "company_admin")) {
         router.replace("/login");
         return;
       }
-      if (token) {
+      if (user && user.role === "company_admin") {
         setLoading(true);
         load(filter);
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [token, authLoading, filter])
+    }, [user, authLoading, filter])
   );
 
   const onFilter = (f: string) => {

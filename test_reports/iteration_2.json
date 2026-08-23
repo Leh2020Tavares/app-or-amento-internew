@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 2 tests the new social-login refactor (JWT -> session-token). Backend: 22/22 pytest tests passing at /app/backend/tests/backend_test.py including login returns session_token+role, /auth/me 401 (not 403) on missing/invalid token, /auth/apple 401 on invalid identity_token, /auth/session 401 on invalid Google session_id, /auth/logout invalidates the session, /my/quotes requires auth, POST /quotes still works anonymously, POST /quotes with Bearer token links quote (customer_user_id set + email populated from user) and it appears in /my/quotes, and all prior admin flows (list, filter, stats, get, reply->responded, PUT /admin/company) still work. Frontend (390x844): /login shows Google button, OrDivider ('ou'), and 'Entrar com e-mail e senha' toggle. Toggle reveals email/password fields; login as admin@internew.com.br routes to /dashboard which correctly loads stats (5 Total / 2 Pendentes / 3 Respondidos), filter chips, and quote list. Existing RN-web deprecation warnings (shadow*, pointerEvents) still present (non-blocking).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "theme.shadow.card", "issue": "Deprecated shadow* style props on web. Warning: '\"shadow*\" style props are deprecated. Use \"boxShadow\"'. Reference: /app/frontend/src/theme.ts"},
+      {"component": "Pressable/View", "issue": "'props.pointerEvents is deprecated. Use style.pointerEvents' warning on multiple screens."}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Optional: migrate shadow* style props to boxShadow to silence RN-web deprecation warning.",
+    "Optional: update deprecated pointerEvents prop usage (use style.pointerEvents).",
+    "Note: Google (Emergent OAuth) and Apple (native only) OAuth UI flows were NOT end-to-end tested — external providers required. Only invalid-token rejection paths and email/password + quote-linking were fully verified."
+  ],
+  "critical_code_review_comments": [
+    "get_current_user correctly returns 401 (not 403) on missing/invalid Authorization header, matching spec.",
+    "get_current_admin returns 403 only when authenticated but role != company_admin; missing header still bubbles up 401 (verified via /admin/quotes without token).",
+    "Session tokens are opaque secrets (secrets.token_urlsafe(32)) stored in user_sessions with TTL index on expires_at — good.",
+    "Startup seeds admin idempotently via find_one on ADMIN_EMAIL lowercased; ADMIN_EMAILS allowlist correctly assigns company_admin role for Google/Apple sign-ins matching the admin email.",
+    "POST /quotes uses Depends(get_optional_user) so anonymous submission still works and authenticated submissions get customer_user_id set. Backfills customer_email from user when empty.",
+    "/my/quotes matches on customer_user_id OR customer_email — reasonable to include legacy anonymous quotes made with the same email.",
+    "All routes prefixed /api. Frontend uses process.env.EXPO_PUBLIC_BACKEND_URL. testIDs present on Google/Apple/toggle/email/password/submit buttons.",
+    "server.py still uses deprecated @app.on_event lifecycle hooks (non-functional)."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created 2 TEST_ prefixed quotes via public/authenticated POST /api/quotes; one was replied to via admin. Company settings updated then restored.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run pytest with `python -m pytest backend/tests/backend_test.py -v -o addopts=''` from /app (root pytest.ini enables xdist which breaks the shared pytest.anon_quote_id — override addopts). EXPO_PUBLIC_BACKEND_URL comes from frontend/.env. Admin: admin@internew.com.br / Internew@2026. Auth is now session-token: login returns {session_token, user{role}}; send `Authorization: Bearer <session_token>`. Google/Apple OAuth cannot be end-to-end tested (external providers) — only invalid-token 401 rejection is validated.",
+  "rca_of_issue": "N/A — no functional issues found."
+}

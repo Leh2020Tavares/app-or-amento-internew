@@ -31,6 +31,17 @@ App compatível com Play Store e App Store para a empresa INTERNEW Tecnologia em
 - Company settings screen (editable WhatsApp/contact/about).
 - Tested: 16/16 backend pass, all frontend flows pass.
 
+## Implemented (2026-06-23) — Social login
+- Auth refactored to session-token model (Bearer from `user_sessions`). Coexists with email/password.
+- Login options: Google (iOS/Android/web, Emergent-managed), Apple (iOS only, native), email/password.
+- Role by email allowlist `ADMIN_EMAILS`: company_admin → /dashboard; customer → /my-quotes.
+- New `/my-quotes` screen: customers see only their own quotes (linked by user_id/email).
+- Logged-in customers' quote submissions auto-link to their account.
+- Endpoints added: POST /api/auth/session (Google), POST /api/auth/apple, POST /api/auth/logout, GET /api/my/quotes.
+- app.json: `ios.usesAppleSignIn: true` + `expo-apple-authentication` plugin.
+- Tested: 22/22 backend pass; login → dashboard verified.
+- NOTE: Apple button/flow only works on a real iOS device with a published build (not Expo Go / web / Android).
+
 ## Backlog
 - P1: Replace temporary logo with client's real emblem.
 - P1: Deep link config so a WhatsApp link opens the form directly (custom scheme / universal link).

@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { colors, spacing, radius, font } from "@/src/theme";
 import { Field, ChipGroup, Button, SectionLabel } from "@/src/components/ui";
 import { useToast } from "@/src/components/Toast";
+import { useAuth } from "@/src/context/AuthContext";
 import { api } from "@/src/api";
 
 const HERO =
@@ -42,6 +43,7 @@ export default function QuoteFormScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const { user } = useAuth();
   const [form, setForm] = useState({ ...emptyForm });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -115,12 +117,22 @@ export default function QuoteFormScreen() {
                 <Text style={styles.logoBadgeText}>iN</Text>
               </View>
               <Pressable
-                testID="company-login-link"
-                onPress={() => router.push("/login")}
+                testID="account-link"
+                onPress={() =>
+                  router.push(
+                    user
+                      ? user.role === "company_admin"
+                        ? "/dashboard"
+                        : "/my-quotes"
+                      : "/login"
+                  )
+                }
                 style={styles.loginPill}
               >
-                <Feather name="lock" size={13} color="#fff" />
-                <Text style={styles.loginPillText}>Área da empresa</Text>
+                <Feather name={user ? "user" : "lock"} size={13} color="#fff" />
+                <Text style={styles.loginPillText}>
+                  {user ? (user.role === "company_admin" ? "Painel" : "Meus orçamentos") : "Área da empresa"}
+                </Text>
               </Pressable>
             </View>
             <Text style={styles.heroTitle}>Solicite seu orçamento</Text>
